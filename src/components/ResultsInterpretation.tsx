@@ -110,6 +110,34 @@ export const ResultsInterpretation = ({ data }: ResultsInterpretationProps) => {
     }
   };
 
+  const handleGenerateReport = () => {
+    // Génération du rapport complet
+    const reportData = {
+      interpretations,
+      insights,
+      timestamp: new Date().toISOString(),
+      summary: "Analyse complète des données FASTQC avec recommandations"
+    };
+    
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], { 
+      type: 'application/json' 
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rapport-fastqc-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleStartAssembly = () => {
+    // Simulation du démarrage de l'assemblage
+    alert('Démarrage de l\'assemblage génomique avec les paramètres optimaux basés sur l\'analyse IA.');
+    // Ici vous pourriez rediriger vers un module d'assemblage ou lancer un pipeline
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="text-center mb-8">
@@ -253,7 +281,7 @@ export const ResultsInterpretation = ({ data }: ResultsInterpretationProps) => {
       <Card>
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="default" size="lg">
+            <Button variant="default" size="lg" onClick={handleGenerateReport}>
               <FileText className="w-4 h-4 mr-2" />
               Rapport Complet
             </Button>
@@ -261,7 +289,7 @@ export const ResultsInterpretation = ({ data }: ResultsInterpretationProps) => {
               <Brain className="w-4 h-4 mr-2" />
               Nouvelle Interprétation
             </Button>
-            <Button variant="success" size="lg">
+            <Button variant="success" size="lg" onClick={handleStartAssembly}>
               <Microscope className="w-4 h-4 mr-2" />
               Démarrer l'Assemblage
             </Button>

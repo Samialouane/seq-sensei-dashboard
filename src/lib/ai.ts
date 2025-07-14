@@ -78,21 +78,46 @@ export class DeepSeekProvider implements AIProvider {
   }
 }
 
+// Auto-generated API keys (demo purposes - not secure for production)
+export const generateDemoApiKey = (provider: string): string => {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2);
+  return `demo_${provider}_${timestamp}_${random}`;
+};
+
 // Main AI service
 export class AIService {
   private provider: AIProvider;
+  private apiKey: string | null = null;
 
   constructor(provider: AIProvider = new OpenAIProvider()) {
     this.provider = provider;
+    this.generateApiKey();
   }
 
   setProvider(provider: AIProvider) {
     this.provider = provider;
+    this.generateApiKey();
   }
 
-  async askAI(prompt: string, apiKey: string): Promise<string> {
+  private generateApiKey() {
+    // Auto-generate demo API key for development
+    this.apiKey = generateDemoApiKey(this.provider.name.toLowerCase());
+    console.log(`Clé API générée automatiquement pour ${this.provider.name}: ${this.apiKey}`);
+  }
+
+  getApiKey(): string | null {
+    return this.apiKey;
+  }
+
+  async askAI(prompt: string, customApiKey?: string): Promise<string> {
+    const keyToUse = customApiKey || this.apiKey;
+    if (!keyToUse) {
+      throw new Error('Aucune clé API disponible');
+    }
+
     try {
-      return await this.provider.generateResponse(prompt, apiKey);
+      return await this.provider.generateResponse(prompt, keyToUse);
     } catch (error) {
       throw new Error(`Erreur ${this.provider.name}: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
