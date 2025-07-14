@@ -6,9 +6,10 @@ import { Upload, FileText, Brain, BarChart3, CheckCircle, AlertCircle, XCircle }
 import { FileUpload } from "@/components/FileUpload";
 import { AnalysisDashboard } from "@/components/AnalysisDashboard";
 import { ResultsInterpretation } from "@/components/ResultsInterpretation";
+import { AIChat } from "@/components/AIChat";
 
 const Index = () => {
-  const [activeSection, setActiveSection] = useState<'upload' | 'dashboard' | 'results'>('upload');
+  const [activeSection, setActiveSection] = useState<'upload' | 'dashboard' | 'results' | 'ai'>('upload');
   const [analysisData, setAnalysisData] = useState(null);
 
   const features = [
@@ -154,6 +155,14 @@ const Index = () => {
                 <Brain className="w-4 h-4 mr-2" />
                 Interprétation
               </Button>
+              <Button
+                variant={activeSection === 'ai' ? 'default' : 'ghost'}
+                onClick={() => setActiveSection('ai')}
+                className="rounded-md"
+              >
+                <Brain className="w-4 h-4 mr-2" />
+                Agent IA
+              </Button>
             </div>
           </div>
 
@@ -167,6 +176,7 @@ const Index = () => {
             )}
             {activeSection === 'dashboard' && <AnalysisDashboard data={analysisData} />}
             {activeSection === 'results' && <ResultsInterpretation data={analysisData} />}
+            {activeSection === 'ai' && <AIChat />}
           </div>
         </div>
       </section>
