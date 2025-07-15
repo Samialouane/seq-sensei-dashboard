@@ -58,16 +58,35 @@ export class FastQCParser {
   }
 
   private static extractTotalReads(content: string): number {
-    // Extraction du nombre total de séquences
-    const match = content.match(/Total Sequences<\/td><td>(\d+)</i) || 
-                  content.match(/Filtered Sequences<\/td><td>(\d+)</i) ||
-                  content.match(/sequences<\/td><td.*?>(\d+)</i);
+    // Patterns plus précis pour les fichiers FASTQC HTML
+    const patterns = [
+      /Total Sequences<\/td><td[^>]*>(\d+)<\/td>/i,
+      /Filtered Sequences<\/td><td[^>]*>(\d+)<\/td>/i,
+      /Sequences flagged as poor quality<\/td><td[^>]*>(\d+)<\/td>/i,
+      /Total sequences<\/td><td[^>]*>(\d+)<\/td>/i,
+      /<td[^>]*>Total Sequences<\/td>\s*<td[^>]*>(\d+)<\/td>/i,
+      /"?Total\s*Sequences"?\s*[:\s]*(\d+)/i,
+      /Basic Statistics.*?Total Sequences.*?(\d+)/is
+    ];
     
-    if (match) {
-      return parseInt(match[1], 10);
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match && match[1]) {
+        const value = parseInt(match[1], 10);
+        if (value > 0) {
+          return value;
+        }
+      }
+    }
+    
+    // Recherche dans les tableaux HTML
+    const tableMatch = content.match(/<table[^>]*>.*?Total Sequences.*?<td[^>]*>(\d+)<\/td>/is);
+    if (tableMatch && tableMatch[1]) {
+      return parseInt(tableMatch[1], 10);
     }
     
     // Valeur par défaut si non trouvé
+    console.warn('Impossible d\'extraire le nombre de reads, utilisation d\'une valeur par défaut');
     return Math.floor(Math.random() * 3000000) + 1000000;
   }
 
