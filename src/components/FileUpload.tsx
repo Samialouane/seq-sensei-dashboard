@@ -5,7 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Upload, FileText, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { aiService } from '@/lib/ai';
+import { FastQCParser } from '@/lib/fastqc-parser';
 
 interface FileUploadProps {
   onAnalysisComplete: (data: any) => void;
@@ -92,97 +92,33 @@ export const FileUpload = ({ onAnalysisComplete }: FileUploadProps) => {
         })
       );
 
-      // Étape 2: Préparation pour l'IA
+      // Étape 2: Analyse des données FASTQC
       setProgress(40);
       toast({
-        title: "Préparation de l'analyse...",
-        description: "Extraction des données de qualité",
+        title: "Extraction des métriques...",
+        description: "Analyse des données de qualité",
       });
 
-      // Créer un prompt pour l'IA avec le contenu des fichiers
-      const prompt = `
-Analyse les résultats FASTQC/MULTIQC suivants et fournis une interprétation détaillée au format JSON:
-
-Fichiers analysés:
-${fileContents.map(f => `
-Fichier: ${f.name}
-Taille: ${f.size} bytes
-Contenu: ${f.content.substring(0, 5000)}...
-`).join('\n')}
-
-Retourne UNIQUEMENT un objet JSON avec cette structure exacte:
-{
-  "summary": {
-    "totalReads": nombre_total_reads,
-    "qualityScore": score_qualite_moyen,
-    "gcContent": pourcentage_gc,
-    "status": "good|warning|error"
-  },
-  "metrics": [
-    {"name": "Qualité des bases", "value": valeur, "status": "good|warning|error", "threshold": seuil},
-    {"name": "Contenu GC", "value": valeur, "status": "good|warning|error", "threshold": seuil},
-    {"name": "Duplication", "value": valeur, "status": "good|warning|error", "threshold": seuil},
-    {"name": "Adaptateurs", "value": valeur, "status": "good|warning|error", "threshold": seuil}
-  ],
-  "interpretation": "Interprétation détaillée des résultats en français",
-  "recommendations": ["recommandation1", "recommandation2", "recommandation3"]
-}
-`;
-
-      // Étape 3: Analyse par IA
+      // Étape 3: Traitement par l'analyseur local
       setProgress(60);
       toast({
-        title: "Analyse par IA...",
-        description: "L'agent IA interprète vos données",
+        title: "Analyse intelligente...",
+        description: "Interprétation des résultats",
       });
 
-      const aiResponse = await aiService.askAI(prompt);
-      
-      // Étape 4: Traitement de la réponse
+      // Utiliser l'analyseur local au lieu de l'API
+      const analysisData = await FastQCParser.parseFiles(fileContents);
+
+      // Étape 4: Finalisation
       setProgress(80);
       toast({
-        title: "Traitement des résultats...",
-        description: "Génération du rapport final",
+        title: "Génération du rapport...",
+        description: "Préparation des résultats",
       });
 
-      let analysisData;
-      try {
-        // Extraire le JSON de la réponse de l'IA
-        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          analysisData = JSON.parse(jsonMatch[0]);
-        } else {
-          throw new Error("Format de réponse invalide");
-        }
-      } catch (error) {
-        // Fallback avec données par défaut si l'IA ne retourne pas un JSON valide
-        analysisData = {
-          summary: {
-            totalReads: 2500000,
-            qualityScore: 35.0,
-            gcContent: 45.0,
-            status: 'good'
-          },
-          metrics: [
-            { name: 'Qualité des bases', value: 35.0, status: 'good', threshold: 30 },
-            { name: 'Contenu GC', value: 45.0, status: 'good', threshold: 50 },
-            { name: 'Duplication', value: 12.0, status: 'good', threshold: 20 },
-            { name: 'Adaptateurs', value: 3.0, status: 'good', threshold: 5 }
-          ],
-          interpretation: aiResponse,
-          recommendations: ["Vérifier la qualité", "Contrôler les adaptateurs", "Analyser la duplication"]
-        };
-      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Ajouter les informations des fichiers
-      analysisData.files = uploadedFiles.map(file => ({
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        status: 'analyzed'
-      }));
-
-      // Étape 5: Finalisation
+      // Étape 5: Terminé
       setProgress(100);
       await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -191,7 +127,7 @@ Retourne UNIQUEMENT un objet JSON avec cette structure exacte:
       
       toast({
         title: "Analyse terminée !",
-        description: "Vos résultats ont été analysés par l'IA",
+        description: "Vos résultats sont prêts à être consultés",
       });
 
     } catch (error) {
