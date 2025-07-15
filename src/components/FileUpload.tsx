@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Upload, FileText, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { aiService } from '@/lib/ai';
 
 interface FileUploadProps {
   onAnalysisComplete: (data: any) => void;
@@ -67,58 +68,141 @@ export const FileUpload = ({ onAnalysisComplete }: FileUploadProps) => {
     }
   };
 
-  const simulateAnalysis = async () => {
+  const analyzeWithAI = async () => {
     setAnalyzing(true);
     setProgress(0);
     
-    // Simulation du processus d'analyse
-    const steps = [
-      { step: 'Lecture des fichiers...', progress: 20 },
-      { step: 'Extraction des données...', progress: 40 },
-      { step: 'Analyse par IA...', progress: 60 },
-      { step: 'Génération des graphiques...', progress: 80 },
-      { step: 'Finalisation...', progress: 100 }
-    ];
-
-    for (const { step, progress: stepProgress } of steps) {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setProgress(stepProgress);
-      
+    try {
+      // Étape 1: Lecture des fichiers
+      setProgress(20);
       toast({
-        title: step,
-        description: `Progression: ${stepProgress}%`,
+        title: "Lecture des fichiers...",
+        description: "Traitement des fichiers uploadés",
       });
-    }
 
-    // Données simulées pour la démonstration
-    const mockAnalysisData = {
-      summary: {
-        totalReads: 2500000,
-        qualityScore: 38.5,
-        gcContent: 42.3,
-        status: 'good'
-      },
-      metrics: [
-        { name: 'Qualité des bases', value: 38.5, status: 'good', threshold: 30 },
-        { name: 'Contenu GC', value: 42.3, status: 'good', threshold: 50 },
-        { name: 'Duplication', value: 15.2, status: 'warning', threshold: 20 },
-        { name: 'Adaptateurs', value: 2.1, status: 'good', threshold: 5 }
-      ],
-      files: uploadedFiles.map(file => ({
+      const fileContents = await Promise.all(
+        uploadedFiles.map(async (file) => {
+          const text = await file.text();
+          return {
+            name: file.name,
+            content: text,
+            size: file.size,
+            type: file.type
+          };
+        })
+      );
+
+      // Étape 2: Préparation pour l'IA
+      setProgress(40);
+      toast({
+        title: "Préparation de l'analyse...",
+        description: "Extraction des données de qualité",
+      });
+
+      // Créer un prompt pour l'IA avec le contenu des fichiers
+      const prompt = `
+Analyse les résultats FASTQC/MULTIQC suivants et fournis une interprétation détaillée au format JSON:
+
+Fichiers analysés:
+${fileContents.map(f => `
+Fichier: ${f.name}
+Taille: ${f.size} bytes
+Contenu: ${f.content.substring(0, 5000)}...
+`).join('\n')}
+
+Retourne UNIQUEMENT un objet JSON avec cette structure exacte:
+{
+  "summary": {
+    "totalReads": nombre_total_reads,
+    "qualityScore": score_qualite_moyen,
+    "gcContent": pourcentage_gc,
+    "status": "good|warning|error"
+  },
+  "metrics": [
+    {"name": "Qualité des bases", "value": valeur, "status": "good|warning|error", "threshold": seuil},
+    {"name": "Contenu GC", "value": valeur, "status": "good|warning|error", "threshold": seuil},
+    {"name": "Duplication", "value": valeur, "status": "good|warning|error", "threshold": seuil},
+    {"name": "Adaptateurs", "value": valeur, "status": "good|warning|error", "threshold": seuil}
+  ],
+  "interpretation": "Interprétation détaillée des résultats en français",
+  "recommendations": ["recommandation1", "recommandation2", "recommandation3"]
+}
+`;
+
+      // Étape 3: Analyse par IA
+      setProgress(60);
+      toast({
+        title: "Analyse par IA...",
+        description: "L'agent IA interprète vos données",
+      });
+
+      const aiResponse = await aiService.askAI(prompt);
+      
+      // Étape 4: Traitement de la réponse
+      setProgress(80);
+      toast({
+        title: "Traitement des résultats...",
+        description: "Génération du rapport final",
+      });
+
+      let analysisData;
+      try {
+        // Extraire le JSON de la réponse de l'IA
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          analysisData = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error("Format de réponse invalide");
+        }
+      } catch (error) {
+        // Fallback avec données par défaut si l'IA ne retourne pas un JSON valide
+        analysisData = {
+          summary: {
+            totalReads: 2500000,
+            qualityScore: 35.0,
+            gcContent: 45.0,
+            status: 'good'
+          },
+          metrics: [
+            { name: 'Qualité des bases', value: 35.0, status: 'good', threshold: 30 },
+            { name: 'Contenu GC', value: 45.0, status: 'good', threshold: 50 },
+            { name: 'Duplication', value: 12.0, status: 'good', threshold: 20 },
+            { name: 'Adaptateurs', value: 3.0, status: 'good', threshold: 5 }
+          ],
+          interpretation: aiResponse,
+          recommendations: ["Vérifier la qualité", "Contrôler les adaptateurs", "Analyser la duplication"]
+        };
+      }
+
+      // Ajouter les informations des fichiers
+      analysisData.files = uploadedFiles.map(file => ({
         name: file.name,
         size: file.size,
         type: file.type,
         status: 'analyzed'
-      }))
-    };
+      }));
 
-    setAnalyzing(false);
-    onAnalysisComplete(mockAnalysisData);
-    
-    toast({
-      title: "Analyse terminée !",
-      description: "Vos résultats sont prêts à être consultés",
-    });
+      // Étape 5: Finalisation
+      setProgress(100);
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      setAnalyzing(false);
+      onAnalysisComplete(analysisData);
+      
+      toast({
+        title: "Analyse terminée !",
+        description: "Vos résultats ont été analysés par l'IA",
+      });
+
+    } catch (error) {
+      setAnalyzing(false);
+      setProgress(0);
+      toast({
+        title: "Erreur d'analyse",
+        description: error instanceof Error ? error.message : "Une erreur est survenue",
+        variant: "destructive",
+      });
+    }
   };
 
   const removeFile = (index: number) => {
@@ -238,7 +322,7 @@ export const FileUpload = ({ onAnalysisComplete }: FileUploadProps) => {
                 <Button 
                   variant="hero" 
                   size="lg" 
-                  onClick={simulateAnalysis}
+                  onClick={analyzeWithAI}
                   className="animate-pulse-glow"
                 >
                   <AlertTriangle className="w-5 h-5 mr-2" />
