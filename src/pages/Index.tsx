@@ -185,7 +185,7 @@ const Index = () => {
                 }} />
               </div>
             )}
-            {activeSection === 'dashboard' && <AnalysisDashboard data={analysisData} />}
+            {activeSection === 'dashboard' && <AnalysisDashboard data={analysisData} onNewAnalysis={() => setActiveSection('upload')} />}
             {activeSection === 'results' && <ResultsInterpretation data={analysisData} />}
             {activeSection === 'ai' && <AIChat />}
           </div>

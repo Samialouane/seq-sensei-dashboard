@@ -19,63 +19,119 @@ interface ResultsInterpretationProps {
 }
 
 export const ResultsInterpretation = ({ data }: ResultsInterpretationProps) => {
-  // Interprétations intelligentes basées sur l'analyse
-  const interpretations = [
-    {
-      category: "Qualité Générale",
-      status: "excellent",
-      icon: CheckCircle,
-      title: "Séquençage de Haute Qualité",
-      description: "Vos données présentent un score de qualité moyen de 38.5, ce qui indique un séquençage de très haute qualité. Les bases sont fiables pour les analyses en aval.",
-      recommendations: [
-        "Procédez avec confiance aux analyses d'assemblage",
-        "Aucun filtrage supplémentaire nécessaire",
-        "Données adaptées pour la publication"
-      ]
-    },
-    {
-      category: "Contenu GC",
-      status: "good",
-      icon: TrendingUp,
-      title: "Composition Équilibrée",
-      description: "Le contenu GC de 42.3% est dans la fourchette normale pour la plupart des organismes. Cela suggère une représentation équilibrée du génome.",
-      recommendations: [
-        "Aucune correction de biais nécessaire",
-        "Adapté pour l'analyse phylogénétique",
-        "Bon candidat pour l'annotation génomique"
-      ]
-    },
-    {
-      category: "Duplication",
-      status: "warning",
-      icon: AlertCircle,
-      title: "Léger Niveau de Duplication",
-      description: "Un taux de duplication de 15.2% est observé. Bien qu'acceptable, il pourrait indiquer une amplification PCR ou une contamination légère.",
-      recommendations: [
-        "Considérer un filtrage des duplicats",
-        "Vérifier les protocoles de préparation",
-        "Surveiller lors des prochains séquençages"
-      ]
+  // Générer des interprétations basées sur les vraies données
+  const generateInterpretations = (analysisData: any) => {
+    const interpretations = [];
+    
+    if (analysisData?.summary) {
+      const { qualityScore, gcContent, status } = analysisData.summary;
+      
+      // Interprétation de la qualité
+      interpretations.push({
+        category: "Qualité Générale",
+        status: qualityScore >= 35 ? "excellent" : qualityScore >= 25 ? "good" : "warning",
+        icon: qualityScore >= 35 ? CheckCircle : qualityScore >= 25 ? TrendingUp : AlertCircle,
+        title: qualityScore >= 35 ? "Séquençage de Haute Qualité" : qualityScore >= 25 ? "Qualité Acceptable" : "Qualité Préoccupante",
+        description: `Score de qualité moyen de ${qualityScore}. ${
+          qualityScore >= 35 ? "Excellente qualité pour toutes analyses." :
+          qualityScore >= 25 ? "Qualité suffisante pour la plupart des analyses." :
+          "Qualité faible, filtrage recommandé."
+        }`,
+        recommendations: qualityScore >= 35 ? [
+          "Procédez avec confiance aux analyses d'assemblage",
+          "Aucun filtrage supplémentaire nécessaire",
+          "Données adaptées pour la publication"
+        ] : qualityScore >= 25 ? [
+          "Filtrage léger recommandé",
+          "Convient pour l'assemblage standard",
+          "Vérifier les paramètres de séquençage"
+        ] : [
+          "Filtrage strict nécessaire",
+          "Revoir les protocoles de séquençage",
+          "Considérer un nouveau séquençage"
+        ]
+      });
+
+      // Interprétation du contenu GC
+      interpretations.push({
+        category: "Contenu GC",
+        status: (gcContent >= 35 && gcContent <= 65) ? "good" : "warning",
+        icon: (gcContent >= 35 && gcContent <= 65) ? TrendingUp : AlertCircle,
+        title: (gcContent >= 35 && gcContent <= 65) ? "Composition Équilibrée" : "Composition Atypique",
+        description: `Contenu GC de ${gcContent}%. ${
+          (gcContent >= 35 && gcContent <= 65) ? 
+          "Dans la fourchette normale pour la plupart des organismes." :
+          "Peut indiquer un biais de composition ou une contamination."
+        }`,
+        recommendations: (gcContent >= 35 && gcContent <= 65) ? [
+          "Aucune correction de biais nécessaire",
+          "Adapté pour l'analyse phylogénétique",
+          "Bon candidat pour l'annotation génomique"
+        ] : [
+          "Vérifier la présence de contaminants",
+          "Analyser la composition taxonomique",
+          "Considérer un filtrage spécialisé"
+        ]
+      });
     }
-  ];
+
+    // Ajouter d'autres interprétations basées sur les métriques
+    if (analysisData?.metrics) {
+      const duplicationMetric = analysisData.metrics.find(m => m.name.includes('Duplication'));
+      if (duplicationMetric) {
+        interpretations.push({
+          category: "Duplication",
+          status: duplicationMetric.status,
+          icon: duplicationMetric.status === 'good' ? CheckCircle : AlertCircle,
+          title: duplicationMetric.status === 'good' ? "Niveau de Duplication Normal" : "Duplication Élevée",
+          description: `Taux de duplication de ${duplicationMetric.value}%. ${
+            duplicationMetric.status === 'good' ? 
+            "Niveau acceptable pour la plupart des analyses." :
+            "Peut indiquer une amplification PCR excessive."
+          }`,
+          recommendations: duplicationMetric.status === 'good' ? [
+            "Aucune action nécessaire",
+            "Procéder à l'assemblage",
+            "Surveillance de routine"
+          ] : [
+            "Considérer un filtrage des duplicats",
+            "Vérifier les protocoles de préparation",
+            "Optimiser les cycles PCR"
+          ]
+        });
+      }
+    }
+
+    return interpretations;
+  };
+
+  const interpretations = data ? generateInterpretations(data) : [];
 
   const insights = [
     {
       title: "Profondeur de Couverture",
-      value: "Optimale",
-      description: "Avec 2.5M de reads, vous avez une couverture suffisante pour la plupart des analyses génomiques.",
+      value: data?.summary ? `${(data.summary.totalReads / 1000000).toFixed(1)}M reads` : "Optimale",
+      description: data?.summary ? 
+        `Avec ${(data.summary.totalReads / 1000000).toFixed(1)}M de reads, vous avez une couverture ${data.summary.totalReads > 2000000 ? 'excellente' : 'suffisante'} pour les analyses génomiques.` :
+        "Avec 2.5M de reads, vous avez une couverture suffisante pour la plupart des analyses génomiques.",
       icon: Target
     },
     {
       title: "Homogénéité",
-      value: "Excellente",
-      description: "La distribution des qualités est homogène, indiquant un séquençage stable.",
+      value: data?.summary?.status === 'good' ? "Excellente" : "Variable",
+      description: data?.summary?.status === 'good' ? 
+        "La distribution des qualités est homogène, indiquant un séquençage stable." :
+        "Variation de qualité détectée, surveiller les performances.",
       icon: Microscope
     },
     {
       title: "Adaptateurs",
-      value: "Minimal (2.1%)",
-      description: "Très peu de contamination par les adaptateurs, trimming optionnel.",
+      value: data?.metrics ? 
+        `${data.metrics.find(m => m.name.includes('Adaptateurs'))?.value || 'N/A'}%` : 
+        "Minimal (2.1%)",
+      description: data?.metrics ? 
+        `${data.metrics.find(m => m.name.includes('Adaptateurs'))?.value < 5 ? 'Très peu' : 'Niveau élevé'} de contamination par les adaptateurs.` :
+        "Très peu de contamination par les adaptateurs, trimming optionnel.",
       icon: Zap
     }
   ];
@@ -111,12 +167,13 @@ export const ResultsInterpretation = ({ data }: ResultsInterpretationProps) => {
   };
 
   const handleGenerateReport = () => {
-    // Génération du rapport complet
+    // Génération du rapport complet avec vraies données
     const reportData = {
       interpretations,
       insights,
+      data: data || {},
       timestamp: new Date().toISOString(),
-      summary: "Analyse complète des données FASTQC avec recommandations"
+      summary: data?.interpretation || "Analyse complète des données FASTQC avec recommandations IA"
     };
     
     const blob = new Blob([JSON.stringify(reportData, null, 2)], { 
@@ -125,7 +182,7 @@ export const ResultsInterpretation = ({ data }: ResultsInterpretationProps) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `rapport-fastqc-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `interpretation-ia-${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -161,14 +218,29 @@ export const ResultsInterpretation = ({ data }: ResultsInterpretationProps) => {
         <CardContent>
           <div className="space-y-4">
             <p className="text-lg leading-relaxed">
-              <strong>Verdict global :</strong> Vos données de séquençage sont de <span className="text-success font-semibold">haute qualité</span> et 
-              adaptées pour la plupart des analyses bioinformatiques. L'agent IA recommande de procéder aux étapes d'analyse en aval 
-              avec un niveau de confiance élevé.
+              <strong>Verdict global :</strong> {data?.summary ? (
+                <>
+                  Vos données de séquençage sont de <span className={`font-semibold ${
+                    data.summary.status === 'good' ? 'text-success' : 
+                    data.summary.status === 'warning' ? 'text-warning' : 'text-destructive'
+                  }`}>
+                    {data.summary.status === 'good' ? 'haute qualité' : 
+                     data.summary.status === 'warning' ? 'qualité acceptable' : 'qualité préoccupante'}
+                  </span> et {data.summary.status === 'good' ? 'adaptées pour la plupart des analyses bioinformatiques' : 'nécessitent une attention particulière'}.
+                </>
+              ) : (
+                <>
+                  Vos données de séquençage sont de <span className="text-success font-semibold">haute qualité</span> et 
+                  adaptées pour la plupart des analyses bioinformatiques.
+                </>
+              )} L'agent IA recommande de procéder aux étapes d'analyse en aval 
+              avec un niveau de confiance {data?.summary?.status === 'good' ? 'élevé' : 'modéré'}.
             </p>
             <div className="flex flex-wrap gap-2">
-              <Badge variant="default">Qualité Excellente</Badge>
-              <Badge variant="secondary">Prêt pour Assemblage</Badge>
-              <Badge variant="outline">Surveillance Duplication</Badge>
+              {data?.summary?.status === 'good' && <Badge variant="default">Qualité Excellente</Badge>}
+              {data?.summary?.status === 'good' && <Badge variant="secondary">Prêt pour Assemblage</Badge>}
+              {data?.metrics?.some(m => m.status === 'warning') && <Badge variant="outline">Surveillance Recommandée</Badge>}
+              {data?.interpretation && <Badge variant="secondary">Analysé par IA</Badge>}
             </div>
           </div>
         </CardContent>
