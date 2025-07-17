@@ -122,6 +122,25 @@ export const FileUpload = ({ onAnalysisComplete }: FileUploadProps) => {
       setProgress(100);
       await new Promise(resolve => setTimeout(resolve, 500));
 
+      // Sauvegarder dans l'historique
+      const historyItem = {
+        id: Date.now().toString(),
+        fileName: uploadedFiles[0]?.name || 'Analyse',
+        timestamp: Date.now(),
+        data: analysisData
+      };
+      
+      const existingHistory = localStorage.getItem('fastqc-analysis-history');
+      const history = existingHistory ? JSON.parse(existingHistory) : [];
+      history.unshift(historyItem);
+      
+      // Garder seulement les 20 dernières analyses
+      if (history.length > 20) {
+        history.splice(20);
+      }
+      
+      localStorage.setItem('fastqc-analysis-history', JSON.stringify(history));
+
       setAnalyzing(false);
       onAnalysisComplete(analysisData);
       

@@ -7,9 +7,10 @@ import { FileUpload } from "@/components/FileUpload";
 import { AnalysisDashboard } from "@/components/AnalysisDashboard";
 import { ResultsInterpretation } from "@/components/ResultsInterpretation";
 import { AIChat } from "@/components/AIChat";
+import { HistoryTab } from "@/components/HistoryTab";
 
 const Index = () => {
-  const [activeSection, setActiveSection] = useState<'upload' | 'dashboard' | 'results' | 'ai'>('upload');
+  const [activeSection, setActiveSection] = useState<'upload' | 'dashboard' | 'results' | 'ai' | 'history'>('upload');
   const [analysisData, setAnalysisData] = useState(null);
 
   const features = [
@@ -172,6 +173,14 @@ const Index = () => {
                 <Brain className="w-4 h-4 mr-2" />
                 Agent IA
               </Button>
+              <Button
+                variant={activeSection === 'history' ? 'default' : 'ghost'}
+                onClick={() => setActiveSection('history')}
+                className="rounded-md"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Historique
+              </Button>
             </div>
           </div>
 
@@ -188,6 +197,12 @@ const Index = () => {
             {activeSection === 'dashboard' && <AnalysisDashboard data={analysisData} onNewAnalysis={() => setActiveSection('upload')} />}
             {activeSection === 'results' && <ResultsInterpretation data={analysisData} />}
             {activeSection === 'ai' && <AIChat />}
+            {activeSection === 'history' && (
+              <HistoryTab onLoadAnalysis={(data) => {
+                setAnalysisData(data);
+                setActiveSection('dashboard');
+              }} />
+            )}
           </div>
         </div>
       </section>
