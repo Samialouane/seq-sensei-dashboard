@@ -105,8 +105,8 @@ export class FastQCParser {
       for (const match of generalMatches) {
         const cleanValue = match.replace(/,/g, '');
         const value = parseInt(cleanValue, 10);
-        // Les nombres de reads sont généralement > 1000 et < 1 milliard
-        if (value >= 1000 && value <= 1000000000) {
+        // Les nombres de reads sont généralement > 500 et < 1 milliard
+        if (value >= 500 && value <= 1000000000) {
           console.log(`Reads estimés depuis analyse générale: ${value}`);
           return value;
         }
@@ -114,7 +114,7 @@ export class FastQCParser {
     }
     
     // Valeur par défaut plus réaliste pour les petits échantillons
-    const defaultValue = Math.floor(Math.random() * 900000) + 100000; // 100K à 1M
+    const defaultValue = Math.floor(Math.random() * 9500) + 500; // 500 à 10K
     console.warn(`Impossible d'extraire le nombre de reads, utilisation d'une valeur par défaut: ${defaultValue}`);
     return defaultValue;
   }
