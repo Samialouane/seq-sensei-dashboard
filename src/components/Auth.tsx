@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Github, Mail, Eye, EyeOff } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Github, Mail, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
@@ -18,7 +19,60 @@ export const Auth = ({ onAuthSuccess }: AuthProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [supabaseConfigured, setSupabaseConfigured] = useState(true);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Vérifier si Supabase est correctement configuré
+    const checkSupabaseConfig = () => {
+      const url = import.meta.env.VITE_SUPABASE_URL;
+      const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      if (!url || !key || url === 'https://your-project.supabase.co' || key === 'your-anon-key') {
+        setSupabaseConfigured(false);
+      }
+    };
+    
+    checkSupabaseConfig();
+  }, []);
+
+  if (!supabaseConfigured) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="text-center">
+            <AlertTriangle className="w-12 h-12 text-warning mx-auto mb-4" />
+            <CardTitle className="text-2xl font-bold">Configuration Supabase requise</CardTitle>
+            <CardDescription>
+              Votre intégration Supabase n'est pas encore configurée
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Pour utiliser l'authentification, vous devez configurer votre projet Supabase :
+              </AlertDescription>
+            </Alert>
+            
+            <div className="space-y-2 text-sm">
+              <p><strong>1.</strong> Cliquez sur le bouton vert "Supabase" en haut à droite</p>
+              <p><strong>2.</strong> Connectez votre compte Supabase</p>
+              <p><strong>3.</strong> Configurez les fournisseurs OAuth (Google, GitHub)</p>
+              <p><strong>4.</strong> Rechargez cette page</p>
+            </div>
+            
+            <Button 
+              onClick={() => window.location.reload()} 
+              className="w-full"
+            >
+              Recharger la page
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
