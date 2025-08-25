@@ -8,8 +8,14 @@ import { AnalysisDashboard } from "@/components/AnalysisDashboard";
 import { ResultsInterpretation } from "@/components/ResultsInterpretation";
 import { AIChat } from "@/components/AIChat";
 import { HistoryTab } from "@/components/HistoryTab";
+import { UserProfile } from "@/components/UserProfile";
+import { supabase } from "@/lib/supabase";
 
-const Index = () => {
+interface IndexProps {
+  user: any;
+}
+
+const Index = ({ user }: IndexProps) => {
   const [activeSection, setActiveSection] = useState<'upload' | 'dashboard' | 'results' | 'ai' | 'history'>('upload');
   const [analysisData, setAnalysisData] = useState(null);
 
@@ -42,6 +48,17 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Navigation Header */}
+      <header className="bg-background border-b sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <Brain className="w-8 h-8 text-primary" />
+            <span className="text-xl font-bold">FASTQC Agent</span>
+          </div>
+          <UserProfile user={user} onSignOut={() => window.location.reload()} />
+        </div>
+      </header>
+
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-hero text-primary-foreground">
         <div className="absolute inset-0 bg-black/10"></div>
