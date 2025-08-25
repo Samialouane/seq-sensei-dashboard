@@ -9,7 +9,7 @@ import { ResultsInterpretation } from "@/components/ResultsInterpretation";
 import { AIChat } from "@/components/AIChat";
 import { HistoryTab } from "@/components/HistoryTab";
 import { UserProfile } from "@/components/UserProfile";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 interface IndexProps {
   user: any;
