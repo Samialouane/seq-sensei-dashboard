@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { NextStepsRecommendations } from '@/components/NextStepsRecommendations';
 import { 
   Brain, 
   Lightbulb, 
@@ -319,35 +320,8 @@ export const ResultsInterpretation = ({ data }: ResultsInterpretationProps) => {
         ))}
       </div>
 
-      {/* Prochaines étapes */}
-      <Card className="bg-gradient-primary text-primary-foreground">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="w-6 h-6" />
-            Prochaines Étapes Recommandées
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <h4 className="font-semibold">Analyses Recommandées :</h4>
-              <ul className="space-y-1 text-sm">
-                <li>• Assemblage de novo du génome</li>
-                <li>• Annotation automatique des gènes</li>
-                <li>• Analyse comparative phylogénétique</li>
-              </ul>
-            </div>
-            <div className="space-y-3">
-              <h4 className="font-semibold">Outils Suggérés :</h4>
-              <ul className="space-y-1 text-sm">
-                <li>• SPAdes ou MegaHit pour l'assemblage</li>
-                <li>• Prokka pour l'annotation</li>
-                <li>• QUAST pour l'évaluation qualité</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Prochaines étapes fonctionnelles */}
+      <NextStepsRecommendations data={data} />
 
       {/* Actions */}
       <Card>
