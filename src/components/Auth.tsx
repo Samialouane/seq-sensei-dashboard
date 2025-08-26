@@ -37,13 +37,16 @@ export const Auth = ({ onAuthSuccess }: AuthProps) => {
       const { error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: window.location.origin
+        }
       });
 
       if (error) throw error;
 
       toast({
         title: "Compte créé !",
-        description: "Vérifiez votre email pour confirmer votre compte",
+        description: "Un email de confirmation a été envoyé. Vérifiez vos spams si vous ne le voyez pas.",
       });
       
       onAuthSuccess?.();
@@ -77,9 +80,13 @@ export const Auth = ({ onAuthSuccess }: AuthProps) => {
       
       onAuthSuccess?.();
     } catch (error: any) {
+      const errorMessage = error.code === 'email_not_confirmed' 
+        ? "Veuillez confirmer votre email avant de vous connecter. Vérifiez votre boîte de réception et vos spams."
+        : error.message;
+        
       toast({
         title: "Erreur de connexion",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
