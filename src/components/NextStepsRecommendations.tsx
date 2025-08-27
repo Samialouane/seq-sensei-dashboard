@@ -21,6 +21,8 @@ import {
   RefreshCw,
   Loader2
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface NextStep {
   id: string;
@@ -668,6 +670,234 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
     });
   };
 
+  const handleExportPipelinePDF = async () => {
+    toast({
+      title: "Export PDF en cours...",
+      description: "Génération du rapport PDF du pipeline",
+    });
+
+    try {
+      // Créer un élément HTML temporaire avec le rapport complet du pipeline
+      const reportElement = document.createElement('div');
+      reportElement.innerHTML = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; color: #333;">
+          <!-- En-tête -->
+          <div style="text-align: center; margin-bottom: 30px; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px;">
+            <h1 style="margin: 0; font-size: 28px; font-weight: bold;">Pipeline Bioinformatique</h1>
+            <p style="margin: 15px 0 5px 0; font-size: 16px;">Rapport d'Exécution Complet</p>
+            <p style="margin: 0; font-size: 14px;">Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}</p>
+            <div style="margin-top: 15px; font-size: 18px; font-weight: bold;">
+              Progression : ${completedSteps.size}/${recommendations?.nextSteps.length || 0} étapes complétées
+            </div>
+          </div>
+
+          <!-- Résumé exécutif -->
+          <div style="background: #f8f9fa; padding: 25px; border-radius: 10px; margin: 25px 0;">
+            <h2 style="margin: 0 0 20px 0; color: #495057; border-bottom: 3px solid #007bff; padding-bottom: 10px;">Résumé Exécutif</h2>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin: 20px 0;">
+              <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; text-align: center;">
+                <h4 style="margin: 0 0 10px 0; color: #1976d2;">Étapes Complétées</h4>
+                <div style="font-size: 32px; font-weight: bold; color: #1976d2;">${completedSteps.size}</div>
+              </div>
+              <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; text-align: center;">
+                <h4 style="margin: 0 0 10px 0; color: #2e7d32;">Progression</h4>
+                <div style="font-size: 32px; font-weight: bold; color: #2e7d32;">${Math.round((completedSteps.size / (recommendations?.nextSteps.length || 1)) * 100)}%</div>
+              </div>
+              <div style="background: #fce4ec; padding: 20px; border-radius: 8px; text-align: center;">
+                <h4 style="margin: 0 0 10px 0; color: #c2185b;">Confiance</h4>
+                <div style="font-size: 18px; font-weight: bold; color: #c2185b;">${recommendations?.qualityAssessment.confidenceLevel || 'N/A'}</div>
+              </div>
+            </div>
+            
+            <div style="margin-top: 20px;">
+              <h4 style="margin: 0 0 10px 0; color: #495057;">Évaluation Globale</h4>
+              <p style="margin: 5px 0;"><strong>Prêt pour assemblage :</strong> ${recommendations?.qualityAssessment.readyForAssembly ? '✅ Oui' : '❌ Non'}</p>
+              <p style="margin: 5px 0;"><strong>Filtrage recommandé :</strong> ${recommendations?.qualityAssessment.recommendedFiltering || 'N/A'}</p>
+              <p style="margin: 5px 0;"><strong>Notes :</strong> ${recommendations?.qualityAssessment.notes || 'N/A'}</p>
+            </div>
+          </div>
+
+          <!-- Détail des étapes -->
+          <div style="margin: 30px 0;">
+            <h2 style="margin: 0 0 20px 0; color: #495057; border-bottom: 3px solid #007bff; padding-bottom: 10px;">Détail des Étapes</h2>
+            
+            ${recommendations?.nextSteps.map((step, index) => {
+              const isCompleted = completedSteps.has(step.id);
+              const result = stepResults[step.id];
+              
+              return `
+                <div style="border: 2px solid ${isCompleted ? '#28a745' : '#dee2e6'}; margin: 20px 0; border-radius: 10px; overflow: hidden;">
+                  <div style="background: ${isCompleted ? '#d4edda' : '#f8f9fa'}; padding: 20px; border-bottom: 1px solid #dee2e6;">
+                    <h3 style="margin: 0; color: ${isCompleted ? '#155724' : '#495057'};">
+                      ${index + 1}. ${step.title} ${isCompleted ? '✅' : '⏳'}
+                    </h3>
+                    <div style="margin: 10px 0; font-size: 14px;">
+                      <span style="background: ${step.priority === 'high' ? '#dc3545' : step.priority === 'medium' ? '#ffc107' : '#6c757d'}; color: white; padding: 4px 8px; border-radius: 4px; margin-right: 10px;">
+                        Priorité ${step.priority === 'high' ? 'Haute' : step.priority === 'medium' ? 'Moyenne' : 'Faible'}
+                      </span>
+                      <span style="color: #6c757d;">⏱️ ${step.estimatedTime}</span>
+                    </div>
+                  </div>
+                  
+                  <div style="padding: 20px;">
+                    <p style="margin: 0 0 15px 0; line-height: 1.6;"><strong>Description :</strong> ${step.description}</p>
+                    <p style="margin: 0 0 15px 0; line-height: 1.6; font-style: italic;"><strong>Justification :</strong> ${step.reasoning}</p>
+                    
+                    ${result ? `
+                      <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                        <h4 style="margin: 0 0 10px 0; color: #2e7d32;">✅ Résultats d'Exécution</h4>
+                        ${result.recommendations ? `
+                          <ul style="margin: 10px 0; padding-left: 20px;">
+                            ${result.recommendations.map(r => `<li style="margin: 5px 0;">${r}</li>`).join('')}
+                          </ul>
+                        ` : ''}
+                        
+                        ${result.assemblyStats ? `
+                          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin: 15px 0;">
+                            <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
+                              <strong>Contigs</strong><br>${result.assemblyStats.totalContigs || 'N/A'}
+                            </div>
+                            <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
+                              <strong>N50</strong><br>${result.assemblyStats.n50?.toLocaleString() || 'N/A'} bp
+                            </div>
+                            <div style="background: white; padding: 10px; border-radius: 5px; text-align: center;">
+                              <strong>Longueur</strong><br>${(result.assemblyStats.totalLength / 1000000)?.toFixed(1) || 'N/A'} Mb
+                            </div>
+                          </div>
+                        ` : ''}
+
+                        ${result.buscoResults ? `
+                          <div style="margin: 15px 0;">
+                            <strong>Analyse BUSCO :</strong>
+                            <div style="background: white; padding: 10px; border-radius: 5px; margin: 5px 0;">
+                              Complets: ${result.buscoResults.complete}% | 
+                              Fragmentés: ${result.buscoResults.fragmented}% | 
+                              Manquants: ${result.buscoResults.missing}%
+                            </div>
+                          </div>
+                        ` : ''}
+
+                        ${result.files && result.files.length > 0 ? `
+                          <div style="margin: 15px 0;">
+                            <strong>Fichiers générés :</strong>
+                            <ul style="margin: 5px 0; padding-left: 20px;">
+                              ${result.files.map(f => `<li>${f.name} (${f.size})</li>`).join('')}
+                            </ul>
+                          </div>
+                        ` : ''}
+                      </div>
+                    ` : `
+                      <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                        <p style="margin: 0; color: #856404;"><em>⏳ Étape non encore exécutée</em></p>
+                      </div>
+                    `}
+                    
+                    <div style="margin: 15px 0;">
+                      <strong>Outils recommandés :</strong> ${step.tools.join(', ')}
+                    </div>
+                    
+                    <div style="margin: 15px 0;">
+                      <strong>Paramètres suggérés :</strong>
+                      <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 12px; margin: 5px 0;">
+                        ${Object.entries(step.parameters).map(([key, value]) => `${key}: ${value}`).join('<br>')}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('') || '<p>Aucune étape définie</p>'}
+          </div>
+
+          <!-- Avertissements et opportunités -->
+          ${recommendations?.warnings && recommendations.warnings.length > 0 ? `
+            <div style="background: #fff3cd; padding: 20px; border-radius: 10px; margin: 25px 0; border-left: 5px solid #ffc107;">
+              <h3 style="margin: 0 0 15px 0; color: #856404;">⚠️ Avertissements</h3>
+              <ul style="margin: 0; padding-left: 20px;">
+                ${recommendations.warnings.map(w => `<li style="margin: 5px 0;">${w}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+
+          ${recommendations?.opportunities && recommendations.opportunities.length > 0 ? `
+            <div style="background: #d1ecf1; padding: 20px; border-radius: 10px; margin: 25px 0; border-left: 5px solid #17a2b8;">
+              <h3 style="margin: 0 0 15px 0; color: #0c5460;">🚀 Opportunités</h3>
+              <ul style="margin: 0; padding-left: 20px;">
+                ${recommendations.opportunities.map(o => `<li style="margin: 5px 0;">${o}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+
+          <!-- Footer -->
+          <div style="text-align: center; margin-top: 40px; padding: 20px; background: #e9ecef; border-radius: 10px;">
+            <p style="margin: 0; color: #6c757d; font-size: 12px;">
+              Rapport généré automatiquement par l'outil d'analyse bioinformatique<br>
+              Pipeline exécuté avec ${completedSteps.size} étape(s) complétée(s) sur ${recommendations?.nextSteps.length || 0}
+            </p>
+          </div>
+        </div>
+      `;
+
+      // Ajouter temporairement à la page pour le rendu
+      reportElement.style.position = 'absolute';
+      reportElement.style.left = '-9999px';
+      reportElement.style.top = '0';
+      reportElement.style.width = '800px';
+      document.body.appendChild(reportElement);
+
+      // Capturer l'élément comme image
+      const canvas = await html2canvas(reportElement, {
+        width: 800,
+        height: reportElement.scrollHeight,
+        scale: 1.5,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      });
+
+      // Supprimer l'élément temporaire
+      document.body.removeChild(reportElement);
+
+      // Créer le PDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 190; // Largeur en mm (A4 = 210mm, margin = 10mm de chaque côté)
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      // Si l'image est plus haute qu'une page, on la divise
+      const pageHeight = 280; // Hauteur A4 en mm moins marges
+      let heightLeft = imgHeight;
+      let position = 10; // Marge du haut
+
+      // Première page
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Pages supplémentaires si nécessaire
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight + 10;
+        pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // Télécharger le PDF
+      pdf.save(`rapport-pipeline-bioinformatique-${new Date().toISOString().split('T')[0]}.pdf`);
+
+      toast({
+        title: "Export PDF terminé",
+        description: "Le rapport PDF du pipeline a été téléchargé",
+      });
+
+    } catch (error) {
+      console.error('Erreur lors de l\'export PDF:', error);
+      toast({
+        title: "Erreur d'export",
+        description: "Impossible de générer le PDF du pipeline",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -960,6 +1190,16 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
             >
               <FileText className="w-4 h-4 mr-2" />
               Tous les Rapports
+            </Button>
+
+            <Button 
+              variant="outline" 
+              size="lg"
+              onClick={() => handleExportPipelinePDF()}
+              disabled={completedSteps.size === 0}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Export PDF Pipeline
             </Button>
           </div>
         </CardContent>

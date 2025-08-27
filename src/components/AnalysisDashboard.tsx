@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -15,6 +16,8 @@ import {
   Zap,
   RefreshCw
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface AnalysisDashboardProps {
   data: any;
@@ -129,20 +132,141 @@ export const AnalysisDashboard = ({ data, onNewAnalysis }: AnalysisDashboardProp
     });
   };
 
-  const handleExportPDF = () => {
-    // Simulation de l'export PDF
+  const handleExportPDF = async () => {
     toast({
       title: "Export PDF en cours...",
-      description: "Génération du rapport PDF (fonctionnalité en développement)",
+      description: "Génération du rapport PDF en cours",
     });
-    
-    // Ici vous pourriez intégrer une librairie comme jsPDF
-    setTimeout(() => {
-      toast({
-        title: "Export terminé",
-        description: "Le rapport PDF sera bientôt disponible",
+
+    try {
+      // Créer un élément HTML temporaire avec le rapport complet
+      const reportElement = document.createElement('div');
+      reportElement.innerHTML = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto;">
+          <div style="text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px;">
+            <h1 style="margin: 0; font-size: 24px;">Rapport d'Analyse FASTQC</h1>
+            <p style="margin: 10px 0 0 0;">Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}</p>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin: 20px 0;">
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;">
+              <h3 style="margin: 0 0 10px 0; color: #495057;">Total Reads</h3>
+              <h2 style="margin: 0; color: #007bff;">${data?.summary?.totalReads?.toLocaleString() || 'N/A'}</h2>
+            </div>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;">
+              <h3 style="margin: 0 0 10px 0; color: #495057;">Score Qualité</h3>
+              <h2 style="margin: 0; color: ${(data?.summary?.qualityScore || 0) >= 30 ? '#28a745' : '#dc3545'};">${data?.summary?.qualityScore || 'N/A'}</h2>
+            </div>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;">
+              <h3 style="margin: 0 0 10px 0; color: #495057;">Contenu GC</h3>
+              <h2 style="margin: 0; color: #6f42c1;">${data?.summary?.gcContent || 'N/A'}%</h2>
+            </div>
+          </div>
+
+          <div style="margin: 20px 0;">
+            <h3 style="color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 10px;">Résumé de l'Analyse</h3>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 10px 0;">
+              <p style="margin: 0; line-height: 1.6;">${data?.interpretation || 'Aucune interprétation disponible'}</p>
+            </div>
+          </div>
+
+          <div style="margin: 20px 0;">
+            <h3 style="color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 10px;">Recommandations</h3>
+            ${data?.recommendations ? `
+              <ul style="list-style-type: disc; padding-left: 20px; line-height: 1.6;">
+                ${data.recommendations.map(rec => `<li style="margin: 5px 0;">${rec}</li>`).join('')}
+              </ul>
+            ` : '<p>Aucune recommandation disponible</p>'}
+          </div>
+
+          <div style="margin: 20px 0;">
+            <h3 style="color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 10px;">Métriques Détaillées</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+              ${Object.entries(data?.details || {}).map(([key, value]) => `
+                <div style="background: #f8f9fa; padding: 10px; border-radius: 5px;">
+                  <strong>${key}:</strong> ${typeof value === 'object' ? JSON.stringify(value) : value}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          <div style="margin: 20px 0;">
+            <h3 style="color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 10px;">Fichiers Analysés</h3>
+            ${data?.files ? `
+              <ul style="list-style-type: none; padding: 0;">
+                ${data.files.map(file => `
+                  <li style="background: #e9ecef; margin: 5px 0; padding: 10px; border-radius: 5px;">
+                    <strong>${file.name}</strong> - ${file.size ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : 'Taille inconnue'}
+                  </li>
+                `).join('')}
+              </ul>
+            ` : '<p>Aucun fichier listé</p>'}
+          </div>
+
+          <div style="text-align: center; margin-top: 30px; padding: 15px; background: #e9ecef; border-radius: 8px;">
+            <p style="margin: 0; color: #6c757d; font-size: 12px;">
+              Rapport généré automatiquement par l'outil d'analyse bioinformatique
+            </p>
+          </div>
+        </div>
+      `;
+
+      // Ajouter temporairement à la page pour le rendu
+      reportElement.style.position = 'absolute';
+      reportElement.style.left = '-9999px';
+      reportElement.style.top = '0';
+      document.body.appendChild(reportElement);
+
+      // Capturer l'élément comme image
+      const canvas = await html2canvas(reportElement, {
+        width: 800,
+        height: reportElement.scrollHeight,
+        scale: 2,
+        useCORS: true,
+        allowTaint: true
       });
-    }, 2000);
+
+      // Supprimer l'élément temporaire
+      document.body.removeChild(reportElement);
+
+      // Créer le PDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 190; // Largeur en mm (A4 = 210mm, margin = 10mm de chaque côté)
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      // Si l'image est plus haute qu'une page, on la divise
+      const pageHeight = 280; // Hauteur A4 en mm moins marges
+      let heightLeft = imgHeight;
+      let position = 10; // Marge du haut
+
+      // Première page
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Pages supplémentaires si nécessaire
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight + 10; // Décalage pour la page suivante
+        pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // Télécharger le PDF
+      pdf.save(`rapport-fastqc-${new Date().toISOString().split('T')[0]}.pdf`);
+
+      toast({
+        title: "Export PDF terminé",
+        description: "Le rapport PDF a été téléchargé avec succès",
+      });
+
+    } catch (error) {
+      console.error('Erreur lors de l\'export PDF:', error);
+      toast({
+        title: "Erreur d'export",
+        description: "Impossible de générer le PDF",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleNewAnalysis = () => {
