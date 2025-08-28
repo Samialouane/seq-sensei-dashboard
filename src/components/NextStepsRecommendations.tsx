@@ -6,24 +6,9 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Zap, 
-  Clock, 
-  Settings, 
-  Play, 
-  CheckCircle, 
-  AlertTriangle, 
-  Target,
-  TrendingUp,
-  Microscope,
-  FileText,
-  Download,
-  RefreshCw,
-  Loader2
-} from 'lucide-react';
+import { Zap, Clock, Settings, Play, CheckCircle, AlertTriangle, Target, TrendingUp, Microscope, FileText, Download, RefreshCw, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-
 interface NextStep {
   id: string;
   title: string;
@@ -35,7 +20,6 @@ interface NextStep {
   parameters: Record<string, string>;
   reasoning: string;
 }
-
 interface Recommendations {
   nextSteps: NextStep[];
   qualityAssessment: {
@@ -47,49 +31,48 @@ interface Recommendations {
   warnings: string[];
   opportunities: string[];
 }
-
 interface NextStepsRecommendationsProps {
   data: any;
 }
-
-export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps) => {
-  const { toast } = useToast();
+export const NextStepsRecommendations = ({
+  data
+}: NextStepsRecommendationsProps) => {
+  const {
+    toast
+  } = useToast();
   const [recommendations, setRecommendations] = useState<Recommendations | null>(null);
   const [loading, setLoading] = useState(false);
   const [executingStep, setExecutingStep] = useState<string | null>(null);
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
   const [stepResults, setStepResults] = useState<Record<string, any>>({});
-
   useEffect(() => {
     generateRecommendations();
   }, [data]);
-
   const generateRecommendations = async () => {
     setLoading(true);
     try {
-      const { data: result, error } = await supabase.functions.invoke('generate-recommendations', {
-        body: { 
+      const {
+        data: result,
+        error
+      } = await supabase.functions.invoke('generate-recommendations', {
+        body: {
           analysisData: data,
           currentStep: 'analysis'
         }
       });
-
       if (error) throw error;
-
       setRecommendations(result);
-      
     } catch (error) {
       console.error('Erreur génération recommandations:', error);
       toast({
         title: "Erreur",
         description: "Impossible de générer les recommandations IA",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
-
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
@@ -102,7 +85,6 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
         return 'secondary';
     }
   };
-
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'quality':
@@ -117,14 +99,12 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
         return Target;
     }
   };
-
   const handleExecuteStep = async (step: NextStep) => {
     setExecutingStep(step.id);
-    
     try {
       let functionName = '';
       let inputData = data;
-      
+
       // Déterminer la fonction à appeler selon l'étape
       switch (step.category) {
         case 'quality':
@@ -143,14 +123,15 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
         default:
           throw new Error(`Type d'étape non supporté: ${step.category}`);
       }
-
-      const { data: result, error } = await supabase.functions.invoke(functionName, {
-        body: { 
+      const {
+        data: result,
+        error
+      } = await supabase.functions.invoke(functionName, {
+        body: {
           parameters: step.parameters,
           inputData: inputData
         }
       });
-
       if (error) throw error;
       if (!result.success) throw new Error(result.error || 'Erreur inconnue');
 
@@ -159,33 +140,27 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
         ...prev,
         [step.id]: result
       }));
-      
       setCompletedSteps(prev => new Set([...prev, step.id]));
-      
       toast({
         title: "Étape complétée",
-        description: `${step.title} - ${result.recommendations?.[0] || 'Exécution réussie'}`,
+        description: `${step.title} - ${result.recommendations?.[0] || 'Exécution réussie'}`
       });
-      
     } catch (error) {
       console.error('Erreur exécution étape:', error);
       toast({
         title: "Erreur d'exécution",
         description: error.message || "Impossible d'exécuter cette étape",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setExecutingStep(null);
     }
   };
-
   const getStepId = (category: string) => {
     return recommendations?.nextSteps.find(s => s.category === category)?.id;
   };
-
   const handleDownloadProtocol = (step: NextStep) => {
     const stepResult = stepResults[step.id];
-    
     const protocol = {
       stepInfo: {
         stepId: step.id,
@@ -208,7 +183,6 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
 
     // Format approprié selon le type d'étape
     let content, filename, mimeType;
-    
     if (stepResult && step.category === 'analysis') {
       // Rapport d'évaluation détaillé
       content = generateEvaluationReport(protocol);
@@ -230,8 +204,9 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
       filename = `protocole-${step.id}-${new Date().toISOString().split('T')[0]}.json`;
       mimeType = 'application/json';
     }
-
-    const blob = new Blob([content], { type: mimeType });
+    const blob = new Blob([content], {
+      type: mimeType
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -240,36 +215,24 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
     toast({
       title: "Rapport téléchargé",
-      description: `${stepResult ? 'Rapport détaillé' : 'Protocole'} pour ${step.title}`,
+      description: `${stepResult ? 'Rapport détaillé' : 'Protocole'} pour ${step.title}`
     });
   };
-
   const generateCommandLines = (step: NextStep) => {
     // Générer des exemples de lignes de commande basées sur l'étape
     switch (step.category) {
       case 'quality':
-        return [
-          `trimmomatic PE -threads 4 input_R1.fastq input_R2.fastq output_R1.fastq unpaired_R1.fastq output_R2.fastq unpaired_R2.fastq ILLUMINACLIP:TruSeq3-PE.fa:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:${step.parameters.minQuality || 15} MINLEN:${step.parameters.minLength || 36}`,
-          `fastqc output_R1.fastq output_R2.fastq -o quality_reports/`
-        ];
+        return [`trimmomatic PE -threads 4 input_R1.fastq input_R2.fastq output_R1.fastq unpaired_R1.fastq output_R2.fastq unpaired_R2.fastq ILLUMINACLIP:TruSeq3-PE.fa:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:${step.parameters.minQuality || 15} MINLEN:${step.parameters.minLength || 36}`, `fastqc output_R1.fastq output_R2.fastq -o quality_reports/`];
       case 'assembly':
-        return [
-          `spades.py -1 output_R1.fastq -2 output_R2.fastq -o assembly_output --careful`,
-          `quast.py assembly_output/contigs.fasta -o quast_results`
-        ];
+        return [`spades.py -1 output_R1.fastq -2 output_R2.fastq -o assembly_output --careful`, `quast.py assembly_output/contigs.fasta -o quast_results`];
       case 'analysis':
-        return [
-          `quast.py contigs.fasta -o quast_results`,
-          `busco -i contigs.fasta -o busco_results -m genome`
-        ];
+        return [`quast.py contigs.fasta -o quast_results`, `busco -i contigs.fasta -o busco_results -m genome`];
       default:
         return [`# Commandes pour ${step.title} à définir`];
     }
   };
-
   const generateQualityReport = (protocol: any) => {
     const result = protocol.executionResults;
     return `
@@ -336,7 +299,6 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
 </body>
 </html>`;
   };
-
   const generateAssemblyReport = (protocol: any) => {
     const result = protocol.executionResults;
     return `
@@ -407,7 +369,6 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
 </body>
 </html>`;
   };
-
   const handleDownloadFiles = (stepId: string) => {
     const stepResult = stepResults[stepId];
     if (!stepResult?.files) return;
@@ -420,9 +381,10 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
       downloadNote: "Fichiers générés par l'analyse bioinformatique",
       commands: stepResult.commands
     };
-
     const content = JSON.stringify(manifest, null, 2);
-    const blob = new Blob([content], { type: 'application/json' });
+    const blob = new Blob([content], {
+      type: 'application/json'
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -431,13 +393,11 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
     toast({
       title: "Liste des fichiers téléchargée",
-      description: `Manifeste des ${stepResult.files.length} fichiers généré`,
+      description: `Manifeste des ${stepResult.files.length} fichiers généré`
     });
   };
-
   const generateEvaluationReport = (protocol: any) => {
     const result = protocol.executionResults;
     return `
@@ -503,7 +463,6 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
 </body>
 </html>`;
   };
-
   const handleDownloadCompletePipeline = () => {
     const pipeline = {
       metadata: {
@@ -522,9 +481,8 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
       opportunities: recommendations?.opportunities || [],
       allResults: stepResults
     };
-    
-    const blob = new Blob([JSON.stringify(pipeline, null, 2)], { 
-      type: 'application/json' 
+    const blob = new Blob([JSON.stringify(pipeline, null, 2)], {
+      type: 'application/json'
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -534,13 +492,11 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    
     toast({
       title: "Pipeline complet téléchargé",
-      description: "Configuration et résultats complets sauvegardés",
+      description: "Configuration et résultats complets sauvegardés"
     });
   };
-
   const handleDownloadAllReports = () => {
     // Générer un rapport consolidé HTML avec tous les résultats
     const consolidatedReport = `
@@ -577,7 +533,7 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
             </div>
             <div class="stat-box">
                 <h4>Progression</h4>
-                <h2>${Math.round((completedSteps.size / (recommendations?.nextSteps.length || 1)) * 100)}%</h2>
+                <h2>${Math.round(completedSteps.size / (recommendations?.nextSteps.length || 1) * 100)}%</h2>
             </div>
             <div class="stat-box">
                 <h4>Confiance</h4>
@@ -594,7 +550,6 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
     ${recommendations?.nextSteps.map(step => {
       const isCompleted = completedSteps.has(step.id);
       const result = stepResults[step.id];
-      
       return `
         <div class="step-section ${isCompleted ? 'completed' : 'pending'}">
             <div class="step-header">
@@ -653,8 +608,9 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
     ` : ''}
 </body>
 </html>`;
-
-    const blob = new Blob([consolidatedReport], { type: 'text/html' });
+    const blob = new Blob([consolidatedReport], {
+      type: 'text/html'
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -663,19 +619,16 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    
     toast({
       title: "Rapport consolidé téléchargé",
-      description: "Rapport HTML complet avec tous les résultats",
+      description: "Rapport HTML complet avec tous les résultats"
     });
   };
-
   const handleExportPipelinePDF = async () => {
     toast({
       title: "Export PDF en cours...",
-      description: "Génération du rapport PDF du pipeline",
+      description: "Génération du rapport PDF du pipeline"
     });
-
     try {
       // Créer un élément HTML temporaire avec le rapport complet du pipeline
       const reportElement = document.createElement('div');
@@ -702,7 +655,7 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
               </div>
               <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; text-align: center;">
                 <h4 style="margin: 0 0 10px 0; color: #2e7d32;">Progression</h4>
-                <div style="font-size: 32px; font-weight: bold; color: #2e7d32;">${Math.round((completedSteps.size / (recommendations?.nextSteps.length || 1)) * 100)}%</div>
+                <div style="font-size: 32px; font-weight: bold; color: #2e7d32;">${Math.round(completedSteps.size / (recommendations?.nextSteps.length || 1) * 100)}%</div>
               </div>
               <div style="background: #fce4ec; padding: 20px; border-radius: 8px; text-align: center;">
                 <h4 style="margin: 0 0 10px 0; color: #c2185b;">Confiance</h4>
@@ -723,10 +676,9 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
             <h2 style="margin: 0 0 20px 0; color: #495057; border-bottom: 3px solid #007bff; padding-bottom: 10px;">Détail des Étapes</h2>
             
             ${recommendations?.nextSteps.map((step, index) => {
-              const isCompleted = completedSteps.has(step.id);
-              const result = stepResults[step.id];
-              
-              return `
+        const isCompleted = completedSteps.has(step.id);
+        const result = stepResults[step.id];
+        return `
                 <div style="border: 2px solid ${isCompleted ? '#28a745' : '#dee2e6'}; margin: 20px 0; border-radius: 10px; overflow: hidden;">
                   <div style="background: ${isCompleted ? '#d4edda' : '#f8f9fa'}; padding: 20px; border-bottom: 1px solid #dee2e6;">
                     <h3 style="margin: 0; color: ${isCompleted ? '#155724' : '#495057'};">
@@ -806,7 +758,7 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
                   </div>
                 </div>
               `;
-            }).join('') || '<p>Aucune étape définie</p>'}
+      }).join('') || '<p>Aucune étape définie</p>'}
           </div>
 
           <!-- Avertissements et opportunités -->
@@ -861,8 +813,8 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
       // Créer le PDF
       const pdf = new jsPDF('p', 'mm', 'a4');
       const imgWidth = 190; // Largeur en mm (A4 = 210mm, margin = 10mm de chaque côté)
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
+      const imgHeight = canvas.height * imgWidth / canvas.width;
+
       // Si l'image est plus haute qu'une page, on la divise
       const pageHeight = 280; // Hauteur A4 en mm moins marges
       let heightLeft = imgHeight;
@@ -882,38 +834,31 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
 
       // Télécharger le PDF
       pdf.save(`rapport-pipeline-bioinformatique-${new Date().toISOString().split('T')[0]}.pdf`);
-
       toast({
         title: "Export PDF terminé",
-        description: "Le rapport PDF du pipeline a été téléchargé",
+        description: "Le rapport PDF du pipeline a été téléchargé"
       });
-
     } catch (error) {
       console.error('Erreur lors de l\'export PDF:', error);
       toast({
         title: "Erreur d'export",
         description: "Impossible de générer le PDF du pipeline",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   if (loading) {
-    return (
-      <Card>
+    return <Card>
         <CardContent className="p-6">
           <div className="flex items-center justify-center space-x-2">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
             <span>Génération des recommandations IA...</span>
           </div>
         </CardContent>
-      </Card>
-    );
+      </Card>;
   }
-
   if (!recommendations) {
-    return (
-      <Card>
+    return <Card>
         <CardContent className="p-6">
           <div className="text-center space-y-4">
             <AlertTriangle className="w-12 h-12 text-warning mx-auto" />
@@ -924,14 +869,10 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
             </Button>
           </div>
         </CardContent>
-      </Card>
-    );
+      </Card>;
   }
-
-  const completionRate = (completedSteps.size / recommendations.nextSteps.length) * 100;
-
-  return (
-    <div className="space-y-6">
+  const completionRate = completedSteps.size / recommendations.nextSteps.length * 100;
+  return <div className="space-y-6">
       {/* En-tête avec évaluation globale */}
       <Card className="bg-gradient-primary text-primary-foreground">
         <CardHeader>
@@ -943,23 +884,16 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
               Simulation
             </Badge>
           </CardTitle>
-          <CardDescription className="text-primary-foreground/80">
-            Pipeline simulé de bioinformatique avec recommandations IA - Outil éducatif uniquement
-          </CardDescription>
+          <CardDescription className="text-primary-foreground/80">Pipeline simulé de bioinformatique avec recommandations IA </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <h4 className="font-semibold">Évaluation Qualité</h4>
               <div className="flex items-center gap-2">
-                {recommendations.qualityAssessment.readyForAssembly ? (
-                  <CheckCircle className="w-5 h-5 text-white" />
-                ) : (
-                  <AlertTriangle className="w-5 h-5 text-yellow-300" />
-                )}
+                {recommendations.qualityAssessment.readyForAssembly ? <CheckCircle className="w-5 h-5 text-white" /> : <AlertTriangle className="w-5 h-5 text-yellow-300" />}
                 <Badge variant="secondary" className="bg-white/20 text-white">
-                  {recommendations.qualityAssessment.confidenceLevel === 'high' ? 'Haute Confiance' :
-                   recommendations.qualityAssessment.confidenceLevel === 'medium' ? 'Confiance Moyenne' : 'Confiance Faible'}
+                  {recommendations.qualityAssessment.confidenceLevel === 'high' ? 'Haute Confiance' : recommendations.qualityAssessment.confidenceLevel === 'medium' ? 'Confiance Moyenne' : 'Confiance Faible'}
                 </Badge>
               </div>
               <p className="text-sm text-primary-foreground/80">
@@ -981,9 +915,7 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
             <div className="space-y-2">
               <h4 className="font-semibold">Filtrage Recommandé</h4>
               <Badge variant="outline" className="border-white/30 text-white">
-                {recommendations.qualityAssessment.recommendedFiltering === 'none' ? 'Aucun' :
-                 recommendations.qualityAssessment.recommendedFiltering === 'light' ? 'Léger' :
-                 recommendations.qualityAssessment.recommendedFiltering === 'moderate' ? 'Modéré' : 'Strict'}
+                {recommendations.qualityAssessment.recommendedFiltering === 'none' ? 'Aucun' : recommendations.qualityAssessment.recommendedFiltering === 'light' ? 'Léger' : recommendations.qualityAssessment.recommendedFiltering === 'moderate' ? 'Modéré' : 'Strict'}
               </Badge>
             </div>
           </div>
@@ -991,10 +923,8 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
       </Card>
 
       {/* Alertes et opportunités */}
-      {(recommendations.warnings.length > 0 || recommendations.opportunities.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {recommendations.warnings.length > 0 && (
-            <Card className="border-l-4 border-l-warning">
+      {(recommendations.warnings.length > 0 || recommendations.opportunities.length > 0) && <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {recommendations.warnings.length > 0 && <Card className="border-l-4 border-l-warning">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-warning">
                   <AlertTriangle className="w-5 h-5" />
@@ -1003,19 +933,15 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
               </CardHeader>
               <CardContent>
                 <ul className="space-y-1">
-                  {recommendations.warnings.map((warning, index) => (
-                    <li key={index} className="text-sm flex items-start gap-2">
+                  {recommendations.warnings.map((warning, index) => <li key={index} className="text-sm flex items-start gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-warning mt-2 flex-shrink-0" />
                       {warning}
-                    </li>
-                  ))}
+                    </li>)}
                 </ul>
               </CardContent>
-            </Card>
-          )}
+            </Card>}
 
-          {recommendations.opportunities.length > 0 && (
-            <Card className="border-l-4 border-l-success">
+          {recommendations.opportunities.length > 0 && <Card className="border-l-4 border-l-success">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-success">
                   <TrendingUp className="w-5 h-5" />
@@ -1024,51 +950,35 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
               </CardHeader>
               <CardContent>
                 <ul className="space-y-1">
-                  {recommendations.opportunities.map((opportunity, index) => (
-                    <li key={index} className="text-sm flex items-start gap-2">
+                  {recommendations.opportunities.map((opportunity, index) => <li key={index} className="text-sm flex items-start gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-success mt-2 flex-shrink-0" />
                       {opportunity}
-                    </li>
-                  ))}
+                    </li>)}
                 </ul>
               </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+            </Card>}
+        </div>}
 
       {/* Étapes détaillées */}
       <div className="space-y-4">
         <h3 className="text-xl font-semibold">Plan d'Action Détaillé</h3>
         
         {recommendations.nextSteps.map((step, index) => {
-          const CategoryIcon = getCategoryIcon(step.category);
-          const isCompleted = completedSteps.has(step.id);
-          const isExecuting = executingStep === step.id;
-          
-          return (
-            <Card key={step.id} className={`transition-all duration-300 ${
-              isCompleted ? 'bg-success/5 border-success/20' : 
-              step.priority === 'high' ? 'border-l-4 border-l-destructive' : ''
-            }`}>
+        const CategoryIcon = getCategoryIcon(step.category);
+        const isCompleted = completedSteps.has(step.id);
+        const isExecuting = executingStep === step.id;
+        return <Card key={step.id} className={`transition-all duration-300 ${isCompleted ? 'bg-success/5 border-success/20' : step.priority === 'high' ? 'border-l-4 border-l-destructive' : ''}`}>
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg ${
-                      isCompleted ? 'bg-success/20' : 'bg-primary/10'
-                    }`}>
-                      {isCompleted ? (
-                        <CheckCircle className="w-6 h-6 text-success" />
-                      ) : (
-                        <CategoryIcon className="w-6 h-6 text-primary" />
-                      )}
+                    <div className={`p-2 rounded-lg ${isCompleted ? 'bg-success/20' : 'bg-primary/10'}`}>
+                      {isCompleted ? <CheckCircle className="w-6 h-6 text-success" /> : <CategoryIcon className="w-6 h-6 text-primary" />}
                     </div>
                     <div>
                       <CardTitle className="flex items-center gap-2">
                         {step.title}
                         <Badge variant={getPriorityColor(step.priority)}>
-                          Priorité {step.priority === 'high' ? 'Haute' : 
-                                  step.priority === 'medium' ? 'Moyenne' : 'Faible'}
+                          Priorité {step.priority === 'high' ? 'Haute' : step.priority === 'medium' ? 'Moyenne' : 'Faible'}
                         </Badge>
                       </CardTitle>
                       <CardDescription className="mt-1">
@@ -1097,23 +1007,19 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
                     <div>
                       <h5 className="font-medium mb-2">Outils Recommandés</h5>
                       <div className="flex flex-wrap gap-1">
-                        {step.tools.map((tool) => (
-                          <Badge key={tool} variant="outline" className="text-xs">
+                        {step.tools.map(tool => <Badge key={tool} variant="outline" className="text-xs">
                             {tool}
-                          </Badge>
-                        ))}
+                          </Badge>)}
                       </div>
                     </div>
                     
                     <div>
                       <h5 className="font-medium mb-2">Paramètres Suggérés</h5>
                       <div className="space-y-1">
-                        {Object.entries(step.parameters).map(([key, value]) => (
-                          <div key={key} className="text-xs flex justify-between">
+                        {Object.entries(step.parameters).map(([key, value]) => <div key={key} className="text-xs flex justify-between">
                             <span className="text-muted-foreground">{key}:</span>
                             <span className="font-mono">{value}</span>
-                          </div>
-                        ))}
+                          </div>)}
                       </div>
                     </div>
                   </div>
@@ -1121,93 +1027,51 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
                   <Separator />
                   
                   <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant={isCompleted ? "secondary" : "default"}
-                      size="sm"
-                      onClick={() => handleExecuteStep(step)}
-                      disabled={isExecuting || isCompleted}
-                    >
-                      {isExecuting ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : isCompleted ? (
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                      ) : (
-                        <Play className="w-4 h-4 mr-2" />
-                      )}
+                    <Button variant={isCompleted ? "secondary" : "default"} size="sm" onClick={() => handleExecuteStep(step)} disabled={isExecuting || isCompleted}>
+                      {isExecuting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : isCompleted ? <CheckCircle className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
                       {isCompleted ? 'Complétée' : isExecuting ? 'Exécution...' : 'Exécuter'}
                     </Button>
                     
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDownloadProtocol(step)}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => handleDownloadProtocol(step)}>
                       <Download className="w-4 h-4 mr-2" />
                       {stepResults[step.id] ? 'Télécharger Rapport' : 'Protocole'}
                     </Button>
                     
-                    {stepResults[step.id]?.files && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDownloadFiles(step.id)}
-                      >
+                    {stepResults[step.id]?.files && <Button variant="outline" size="sm" onClick={() => handleDownloadFiles(step.id)}>
                         <Download className="w-4 h-4 mr-2" />
                         Fichiers ({stepResults[step.id].files.length})
-                      </Button>
-                    )}
+                      </Button>}
                   </div>
                 </div>
               </CardContent>
-            </Card>
-          );
-        })}
+            </Card>;
+      })}
       </div>
 
       {/* Actions globales */}
       <Card>
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              variant="default" 
-              size="lg" 
-              onClick={generateRecommendations}
-              disabled={loading}
-            >
+            <Button variant="default" size="lg" onClick={generateRecommendations} disabled={loading}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Actualiser les Recommandations
             </Button>
-            <Button 
-              variant="outline" 
-              size="lg"
-              onClick={() => handleDownloadCompletePipeline()}
-            >
+            <Button variant="outline" size="lg" onClick={() => handleDownloadCompletePipeline()}>
               <Download className="w-4 h-4 mr-2" />
               Pipeline Complet
             </Button>
             
-            <Button 
-              variant="outline" 
-              size="lg"
-              onClick={() => handleDownloadAllReports()}
-              disabled={completedSteps.size === 0}
-            >
+            <Button variant="outline" size="lg" onClick={() => handleDownloadAllReports()} disabled={completedSteps.size === 0}>
               <FileText className="w-4 h-4 mr-2" />
               Tous les Rapports
             </Button>
 
-            <Button 
-              variant="outline" 
-              size="lg"
-              onClick={() => handleExportPipelinePDF()}
-              disabled={completedSteps.size === 0}
-            >
+            <Button variant="outline" size="lg" onClick={() => handleExportPipelinePDF()} disabled={completedSteps.size === 0}>
               <FileText className="w-4 h-4 mr-2" />
               Export PDF Pipeline
             </Button>
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>;
 };
