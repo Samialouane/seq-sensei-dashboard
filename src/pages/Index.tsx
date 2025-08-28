@@ -22,20 +22,20 @@ const Index = ({ user }: IndexProps) => {
   const features = [
     {
       icon: FileText,
-      title: "Import FASTQC/MULTIQC",
-      description: "Uploadez vos fichiers de résultats pour une analyse instantanée",
+      title: "Simulation FASTQC/MULTIQC",
+      description: "Démonstration éducative des analyses de qualité de séquençage avec interface réaliste",
       color: "text-primary"
     },
     {
       icon: Brain,
-      title: "IA d'Interprétation",
-      description: "Agent intelligent qui analyse et interprète vos données automatiquement",
+      title: "IA d'Interprétation Simulée",
+      description: "Simulation d'agent intelligent pour l'apprentissage des analyses bioinformatiques",
       color: "text-success"
     },
     {
       icon: BarChart3,
-      title: "Visualisations Avancées",
-      description: "Graphiques interactifs et tableaux de bord professionnels",
+      title: "Visualisations Éducatives",
+      description: "Graphiques et tableaux de bord simulés pour l'enseignement de la bioinformatique",
       color: "text-warning"
     }
   ];
@@ -72,7 +72,7 @@ const Index = ({ user }: IndexProps) => {
               Agent d'Analyse FASTQC
             </h1>
             <p className="text-xl md:text-2xl mb-8 text-primary-foreground/90 animate-fade-in">
-              Interprétation intelligente de vos résultats de séquençage avec une précision scientifique
+              Plateforme éducative de simulation d'analyse bioinformatique avec IA - Démonstration des outils FASTQC, assemblage génomique et validation qualité
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center animate-scale-in">
               <Button 
@@ -234,7 +234,7 @@ const Index = ({ user }: IndexProps) => {
             <span className="text-2xl font-bold text-foreground">FASTQC Agent</span>
           </div>
           <p className="text-muted-foreground">
-            Analyse intelligente de données bioinformatiques • Développé avec IA
+            Plateforme éducative de simulation bioinformatique • Outils d'apprentissage uniquement
           </p>
         </div>
       </footer>

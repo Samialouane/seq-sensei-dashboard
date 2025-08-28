@@ -938,9 +938,13 @@ export const NextStepsRecommendations = ({ data }: NextStepsRecommendationsProps
           <CardTitle className="flex items-center gap-2">
             <Zap className="w-6 h-6" />
             Prochaines Étapes Recommandées par IA
+            <Badge variant="outline" className="bg-warning/20 text-warning border-warning ml-2">
+              <AlertTriangle className="w-3 h-3 mr-1" />
+              Simulation
+            </Badge>
           </CardTitle>
           <CardDescription className="text-primary-foreground/80">
-            Recommandations personnalisées basées sur votre analyse FASTQC
+            Pipeline simulé de bioinformatique avec recommandations IA - Outil éducatif uniquement
           </CardDescription>
         </CardHeader>
         <CardContent>

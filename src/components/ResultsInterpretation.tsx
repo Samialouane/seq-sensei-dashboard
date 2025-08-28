@@ -202,9 +202,13 @@ export const ResultsInterpretation = ({ data }: ResultsInterpretationProps) => {
         <h2 className="text-3xl font-bold mb-4 flex items-center justify-center gap-3">
           <Brain className="w-8 h-8 text-primary" />
           Interprétation par IA
+          <Badge variant="outline" className="bg-warning/10 text-warning border-warning">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Simulation
+          </Badge>
         </h2>
         <p className="text-muted-foreground">
-          Analyse intelligente et recommandations personnalisées pour vos données de séquençage
+          Simulation d'analyse intelligente et recommandations - Démonstration éducative des capacités d'IA en bioinformatique
         </p>
       </div>
 

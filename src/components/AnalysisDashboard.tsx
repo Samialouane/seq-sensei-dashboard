@@ -281,9 +281,15 @@ export const AnalysisDashboard = ({ data, onNewAnalysis }: AnalysisDashboardProp
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold mb-4">Tableau de Bord d'Analyse</h2>
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <h2 className="text-3xl font-bold">Tableau de Bord d'Analyse</h2>
+          <Badge variant="outline" className="bg-warning/10 text-warning border-warning">
+            <AlertTriangle className="w-3 h-3 mr-1" />
+            Simulation Éducative
+          </Badge>
+        </div>
         <p className="text-muted-foreground">
-          Résultats détaillés de l'analyse FASTQC avec interprétation par IA
+          Simulation de résultats FASTQC avec interprétation par IA - Outil éducatif uniquement
         </p>
       </div>
 
