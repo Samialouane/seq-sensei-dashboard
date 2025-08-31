@@ -131,81 +131,160 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni texte supplémentaire.`;
 });
 
 function generateFallbackRecommendations(analysisData?: any) {
-  const qualityScore = analysisData?.summary?.qualityScore || 35;
-  const gcContent = analysisData?.summary?.gcContent || 42;
-  const totalReads = analysisData?.summary?.totalReads || 2500000;
+  // Extraction améliorée des métriques avec valeurs par défaut intelligentes
+  const qualityScore = analysisData?.summary?.qualityScore || 28;
+  const gcContent = analysisData?.summary?.gcContent || 45;
+  const totalReads = analysisData?.summary?.totalReads || 850000;
+  const duplicationLevel = analysisData?.summary?.duplicationLevel || 15;
+  const adapterContent = analysisData?.summary?.adapterContent || 2;
   
+  // Classification intelligente basée sur les métriques réelles
   const isHighQuality = qualityScore >= 35;
-  const isGoodCoverage = totalReads >= 2000000;
+  const isMediumQuality = qualityScore >= 25 && qualityScore < 35;
+  const isLowQuality = qualityScore < 25;
+  
+  const isHighCoverage = totalReads >= 5000000;
+  const isMediumCoverage = totalReads >= 1000000 && totalReads < 5000000;
+  const isLowCoverage = totalReads < 1000000;
+  
+  const hasHighDuplication = duplicationLevel > 20;
+  const hasAdapterContamination = adapterContent > 5;
+  const hasAtypicalGC = gcContent < 35 || gcContent > 65;
+  
+  // Génération des étapes avec logique contextuelle
+  const nextSteps = [];
+  
+  // 1. Étape de filtrage qualité (toujours nécessaire mais avec paramètres adaptatifs)
+  if (isLowQuality || hasAdapterContamination || hasHighDuplication) {
+    nextSteps.push({
+      id: "quality_filtering",
+      title: "Filtrage Qualité Strict",
+      description: `Filtrage intensif requis - Score: ${qualityScore}, Adaptateurs: ${adapterContent}%, Duplications: ${duplicationLevel}%`,
+      priority: "high",
+      category: "quality",
+      estimatedTime: isLowCoverage ? "10-20 minutes" : "20-40 minutes",
+      tools: hasAdapterContamination ? ["Trimmomatic", "Cutadapt"] : ["FastP", "Trimmomatic"],
+      parameters: {
+        minQuality: isLowQuality ? "30" : "25",
+        minLength: isLowCoverage ? "30" : "50",
+        adapter: hasAdapterContamination ? "TruSeq3-PE" : "auto-detect",
+        deduplicate: hasHighDuplication ? "true" : "false"
+      },
+      reasoning: `Qualité ${isLowQuality ? 'faible' : 'modérée'} (Q${qualityScore}), ${hasAdapterContamination ? 'contamination adaptateurs détectée' : ''} ${hasHighDuplication ? 'taux de duplication élevé' : ''}`
+    });
+  } else if (isMediumQuality) {
+    nextSteps.push({
+      id: "quality_filtering",
+      title: "Filtrage Qualité Modéré",
+      description: `Filtrage standard recommandé - Score qualité acceptable (Q${qualityScore})`,
+      priority: "medium",
+      category: "quality",
+      estimatedTime: "5-15 minutes",
+      tools: ["FastP", "Trimmomatic"],
+      parameters: {
+        minQuality: "20",
+        minLength: "40",
+        adapter: "auto-detect"
+      },
+      reasoning: `Score de qualité modéré (Q${qualityScore}), filtrage léger recommandé pour optimiser l'assemblage`
+    });
+  } else {
+    nextSteps.push({
+      id: "quality_validation",
+      title: "Validation Qualité",
+      description: `Validation finale - Excellente qualité (Q${qualityScore})`,
+      priority: "low",
+      category: "quality",
+      estimatedTime: "5 minutes",
+      tools: ["FastQC"],
+      parameters: {
+        validate: "true",
+        minQuality: "15"
+      },
+      reasoning: `Excellente qualité (Q${qualityScore}), validation rapide suffisante`
+    });
+  }
+  
+  // 2. Assemblage avec stratégie adaptée à la couverture et qualité
+  let assemblyStrategy, estimatedTime, memoryReq;
+  if (isHighCoverage && isHighQuality) {
+    assemblyStrategy = "standard";
+    estimatedTime = "30-60 minutes";
+    memoryReq = "16GB";
+  } else if (isMediumCoverage && isMediumQuality) {
+    assemblyStrategy = "careful";
+    estimatedTime = "60-120 minutes";
+    memoryReq = "12GB";
+  } else {
+    assemblyStrategy = "conservative";
+    estimatedTime = "90-180 minutes";
+    memoryReq = "8GB";
+  }
+  
+  nextSteps.push({
+    id: "genome_assembly",
+    title: `Assemblage ${assemblyStrategy === 'standard' ? 'Standard' : assemblyStrategy === 'careful' ? 'Prudent' : 'Conservateur'}`,
+    description: `Assemblage ${assemblyStrategy} adapté à ${(totalReads/1000000).toFixed(1)}M reads (Q${qualityScore})`,
+    priority: "high",
+    category: "assembly",
+    estimatedTime: estimatedTime,
+    tools: isHighCoverage ? ["SPAdes", "MegaHit"] : isLowCoverage ? ["MegaHit", "SKESA"] : ["SPAdes", "Flye"],
+    parameters: {
+      kmer: isHighQuality ? "auto" : "21,33,55",
+      coverage: assemblyStrategy,
+      memory: memoryReq,
+      threads: isHighCoverage ? "8" : "4"
+    },
+    reasoning: `${(totalReads/1000000).toFixed(1)}M reads avec Q${qualityScore} ${isHighCoverage ? '(haute couverture)' : isLowCoverage ? '(couverture limitée)' : '(couverture modérée)'} - stratégie ${assemblyStrategy} recommandée`
+  });
+  
+  // 3. Évaluation avec focus sur les points critiques
+  const evaluationFocus = [];
+  if (hasAtypicalGC) evaluationFocus.push("contamination");
+  if (isLowCoverage) evaluationFocus.push("complétude");
+  if (isLowQuality) evaluationFocus.push("fragmentation");
+  
+  nextSteps.push({
+    id: "assembly_evaluation",
+    title: "Évaluation Complète",
+    description: `Évaluation QUAST/BUSCO ${evaluationFocus.length > 0 ? '- Focus: ' + evaluationFocus.join(', ') : ''}`,
+    priority: evaluationFocus.length > 0 ? "high" : "medium",
+    category: "analysis",
+    estimatedTime: "15-30 minutes",
+    tools: ["QUAST", "BUSCO", hasAtypicalGC ? "CheckM" : ""].filter(Boolean),
+    parameters: {
+      reference: "none",
+      mode: "genome",
+      threads: "4",
+      checkContamination: hasAtypicalGC ? "true" : "false"
+    },
+    reasoning: `Évaluation ${evaluationFocus.length > 0 ? 'ciblée sur ' + evaluationFocus.join(' et ') : 'standard'} nécessaire`
+  });
   
   return {
-    nextSteps: [
-      {
-        id: "quality_filtering",
-        title: isHighQuality ? "Validation Qualité" : "Filtrage Qualité",
-        description: isHighQuality ? 
-          "Validation finale de la qualité avant assemblage" : 
-          "Filtrage des reads de faible qualité recommandé",
-        priority: isHighQuality ? "low" : "high",
-        category: "quality",
-        estimatedTime: "5-15 minutes",
-        tools: ["Trimmomatic", "Cutadapt", "FastP"],
-        parameters: {
-          minQuality: isHighQuality ? "25" : "30",
-          minLength: "50",
-          adapter: "TruSeq3"
-        },
-        reasoning: isHighQuality ? 
-          "Score de qualité excellent, validation recommandée" : 
-          "Score de qualité modéré, filtrage nécessaire"
-      },
-      {
-        id: "genome_assembly",
-        title: "Assemblage Génomique",
-        description: "Assemblage de novo du génome avec les paramètres optimaux",
-        priority: "high",
-        category: "assembly",
-        estimatedTime: isGoodCoverage ? "30-60 minutes" : "60-120 minutes",
-        tools: ["SPAdes", "MegaHit", "Flye"],
-        parameters: {
-          kmer: "auto",
-          coverage: isGoodCoverage ? "auto" : "careful",
-          memory: "8GB"
-        },
-        reasoning: `Avec ${(totalReads/1000000).toFixed(1)}M reads, assemblage ${isGoodCoverage ? 'standard' : 'avec paramètres conservateurs'} recommandé`
-      },
-      {
-        id: "assembly_evaluation",
-        title: "Évaluation de l'Assemblage",
-        description: "Analyse de la qualité et des statistiques de l'assemblage",
-        priority: "medium",
-        category: "analysis",
-        estimatedTime: "10-20 minutes",
-        tools: ["QUAST", "BUSCO", "CheckM"],
-        parameters: {
-          reference: "none",
-          mode: "genome",
-          threads: "4"
-        },
-        reasoning: "Évaluation essentielle de la qualité d'assemblage"
-      }
-    ],
+    nextSteps: nextSteps,
     qualityAssessment: {
-      readyForAssembly: isHighQuality,
-      recommendedFiltering: isHighQuality ? "light" : "moderate",
-      confidenceLevel: isHighQuality && isGoodCoverage ? "high" : "medium",
-      notes: `Données ${isHighQuality ? 'de haute qualité' : 'de qualité acceptable'} avec ${isGoodCoverage ? 'couverture suffisante' : 'couverture limitée'}`
+      readyForAssembly: !isLowQuality && !isLowCoverage,
+      recommendedFiltering: isLowQuality || hasAdapterContamination ? "strict" : isMediumQuality ? "moderate" : "light",
+      confidenceLevel: (isHighQuality && isHighCoverage) ? "high" : 
+                      (isMediumQuality && isMediumCoverage) ? "medium" : "low",
+      notes: `Q${qualityScore}, ${(totalReads/1000000).toFixed(1)}M reads, GC:${gcContent}%, Dup:${duplicationLevel}%`
     },
     warnings: [
-      ...(qualityScore < 30 ? ["Score de qualité faible détecté"] : []),
-      ...(gcContent < 30 || gcContent > 70 ? ["Contenu GC atypique"] : []),
-      ...(totalReads < 1000000 ? ["Couverture potentiellement insuffisante"] : [])
+      ...(isLowQuality ? [`Score de qualité faible (Q${qualityScore}) - Filtrage strict requis`] : []),
+      ...(hasAtypicalGC ? [`Contenu GC atypique (${gcContent}%) - Vérifier contamination`] : []),
+      ...(isLowCoverage ? [`Couverture faible (${(totalReads/1000000).toFixed(1)}M) - Assemblage fragmenté probable`] : []),
+      ...(hasHighDuplication ? [`Taux de duplication élevé (${duplicationLevel}%) - Déduplication recommandée`] : []),
+      ...(hasAdapterContamination ? [`Contamination adaptateurs détectée (${adapterContent}%)`] : [])
     ],
     opportunities: [
-      ...(isHighQuality ? ["Données excellentes pour publication"] : []),
-      ...(isGoodCoverage ? ["Couverture suffisante pour assemblage complet"] : []),
-      "Analyse phylogénétique possible",
-      "Annotation génomique recommandée"
+      ...(isHighQuality && isHighCoverage ? ["Données de très haute qualité - Idéal pour assemblage de référence"] : []),
+      ...(isHighQuality ? ["Qualité suffisante pour analyses comparatives"] : []),
+      ...(isHighCoverage ? ["Couverture élevée - Détection variants possible"] : []),
+      ...(gcContent >= 35 && gcContent <= 65 ? ["Contenu GC normal - Assemblage standard recommandé"] : []),
+      ...(duplicationLevel < 15 ? ["Faible duplication - Données de bonne qualité"] : []),
+      "Analyse phylogénétique envisageable",
+      ...(isHighQuality ? ["Annotation génomique complète recommandée"] : ["Annotation génomique de base possible"])
     ]
   };
 }

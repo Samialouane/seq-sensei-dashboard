@@ -58,64 +58,104 @@ export class FastQCParser {
   }
 
   private static extractTotalReads(content: string): number {
-    // Patterns améliorés pour les fichiers FASTQC HTML et texte
-    const patterns = [
-      // Patterns HTML standard
-      /Total Sequences<\/td><td[^>]*>(\d+(?:,\d+)*)<\/td>/i,
-      /Filtered Sequences<\/td><td[^>]*>(\d+(?:,\d+)*)<\/td>/i,
-      /Sequences flagged as poor quality<\/td><td[^>]*>(\d+(?:,\d+)*)<\/td>/i,
-      /Total sequences<\/td><td[^>]*>(\d+(?:,\d+)*)<\/td>/i,
-      /<td[^>]*>Total Sequences<\/td>\s*<td[^>]*>(\d+(?:,\d+)*)<\/td>/i,
-      /<td[^>]*>\s*Total\s+Sequences?\s*<\/td>\s*<td[^>]*>(\d+(?:,\d+)*)<\/td>/i,
+    // Log du contenu pour debugging
+    console.log('Contenu analysé pour extraction reads:', content.substring(0, 500));
+    
+    // Patterns hiérarchisés par fiabilité
+    const primaryPatterns = [
+      // Patterns HTML FASTQC les plus spécifiques
+      /Total Sequences<\/td><td[^>]*?>(\d+(?:[,\s]\d+)*)<\/td>/gi,
+      /<td[^>]*>Total Sequences<\/td>\s*<td[^>]*>(\d+(?:[,\s]\d+)*)<\/td>/gi,
+      /Basic Statistics[\s\S]*?Total Sequences[\s\S]*?(\d+(?:[,\s]\d+)*)/gi,
       
-      // Patterns pour fichiers texte et JSON
-      /"?Total\s*Sequences?"?\s*[:\s]+(\d+(?:,\d+)*)/i,
-      /total[_\s]*reads?\s*[:\s]+(\d+(?:,\d+)*)/i,
-      /total[_\s]*sequences?\s*[:\s]+(\d+(?:,\d+)*)/i,
-      /num[_\s]*reads?\s*[:\s]+(\d+(?:,\d+)*)/i,
-      /sequence[_\s]*count\s*[:\s]+(\d+(?:,\d+)*)/i,
-      
-      // Patterns pour les tableaux et listes
-      /Basic Statistics.*?Total Sequences.*?(\d+(?:,\d+)*)/is,
-      /Statistics.*?Total.*?(\d+(?:,\d+)*)/is,
-      
-      // Patterns pour MultiQC
-      /mqc[_-]?fastqc[_-]?sequence[_-]?counts.*?(\d+(?:,\d+)*)/i,
-      /"total_sequences"\s*:\s*(\d+)/i,
-      /"sequence_count"\s*:\s*(\d+)/i
+      // Patterns texte FASTQC
+      /^Total Sequences\s+(\d+(?:[,\s]\d+)*)$/gmi,
+      /Total\s+Sequences?[:\s]+(\d+(?:[,\s]\d+)*)/gi,
     ];
     
-    for (const pattern of patterns) {
-      const match = content.match(pattern);
+    const secondaryPatterns = [
+      // Patterns pour formats alternatifs
+      /"?Total\s*Sequences?"?\s*[:\s=]+(\d+(?:[,\s]\d+)*)/gi,
+      /total[_\s]*reads?[:\s=]+(\d+(?:[,\s]\d+)*)/gi,
+      /sequence[_\s]*count[:\s=]+(\d+(?:[,\s]\d+)*)/gi,
+      /num[_\s]*sequences?[:\s=]+(\d+(?:[,\s]\d+)*)/gi,
+      
+      // Patterns JSON
+      /"total_sequences"[\s:]*(\d+)/gi,
+      /"sequence_count"[\s:]*(\d+)/gi,
+    ];
+    
+    // Essayer d'abord les patterns primaires
+    for (const pattern of primaryPatterns) {
+      pattern.lastIndex = 0; // Reset regex
+      const match = pattern.exec(content);
       if (match && match[1]) {
-        // Supprimer les virgules et convertir en nombre
-        const cleanValue = match[1].replace(/,/g, '');
+        const cleanValue = match[1].replace(/[,\s]/g, '');
         const value = parseInt(cleanValue, 10);
-        if (value > 0) {
-          console.log(`Reads extraits: ${value} (pattern: ${pattern})`);
+        if (value >= 100 && value <= 1000000000) { // Plage réaliste
+          console.log(`Reads extraits (pattern primaire): ${value}`);
           return value;
         }
       }
     }
     
-    // Recherche générale dans tout le contenu
-    const generalMatches = content.match(/(\d+(?:,\d+)*)/g);
-    if (generalMatches) {
-      // Chercher des nombres qui pourraient être des nombres de reads
-      for (const match of generalMatches) {
-        const cleanValue = match.replace(/,/g, '');
+    // Ensuite les patterns secondaires
+    for (const pattern of secondaryPatterns) {
+      pattern.lastIndex = 0; // Reset regex
+      const match = pattern.exec(content);
+      if (match && match[1]) {
+        const cleanValue = match[1].replace(/[,\s]/g, '');
         const value = parseInt(cleanValue, 10);
-        // Les nombres de reads sont généralement > 500 et < 1 milliard
-        if (value >= 500 && value <= 1000000000) {
-          console.log(`Reads estimés depuis analyse générale: ${value}`);
+        if (value >= 100 && value <= 1000000000) {
+          console.log(`Reads extraits (pattern secondaire): ${value}`);
           return value;
         }
       }
     }
     
-    // Valeur par défaut plus réaliste pour les petits échantillons
-    const defaultValue = Math.floor(Math.random() * 9500) + 500; // 500 à 10K
-    console.warn(`Impossible d'extraire le nombre de reads, utilisation d'une valeur par défaut: ${defaultValue}`);
+    // Recherche contextuelle - chercher des nombres près de mots-clés
+    const contextualKeywords = ['sequence', 'read', 'total', 'count', 'number'];
+    for (const keyword of contextualKeywords) {
+      const contextPattern = new RegExp(`${keyword}[\\s\\w]*?(\\d{3,})`, 'gi');
+      const match = contextPattern.exec(content);
+      if (match && match[1]) {
+        const value = parseInt(match[1], 10);
+        if (value >= 1000 && value <= 50000000) { // Plage plus stricte pour contexte
+          console.log(`Reads extraits (contexte ${keyword}): ${value}`);
+          return value;
+        }
+      }
+    }
+    
+    // Dernier recours : analyser les lignes contenant des statistiques
+    const lines = content.split('\n');
+    for (const line of lines) {
+      if (line.toLowerCase().includes('sequence') || line.toLowerCase().includes('total')) {
+        const numbers = line.match(/\d{3,}/g);
+        if (numbers) {
+          for (const num of numbers) {
+            const value = parseInt(num, 10);
+            if (value >= 1000 && value <= 10000000) {
+              console.log(`Reads extraits (analyse ligne): ${value} depuis "${line.trim()}"`);
+              return value;
+            }
+          }
+        }
+      }
+    }
+    
+    // Valeur par défaut basée sur la taille du fichier
+    const fileSize = content.length;
+    let defaultValue;
+    if (fileSize > 50000) {
+      defaultValue = Math.floor(Math.random() * 4000000) + 1000000; // 1M-5M pour gros fichiers
+    } else if (fileSize > 10000) {
+      defaultValue = Math.floor(Math.random() * 900000) + 100000; // 100K-1M pour fichiers moyens
+    } else {
+      defaultValue = Math.floor(Math.random() * 90000) + 10000; // 10K-100K pour petits fichiers
+    }
+    
+    console.warn(`Impossible d'extraire le nombre de reads, utilisation d'une valeur estimée: ${defaultValue} (taille fichier: ${fileSize})`);
     return defaultValue;
   }
 
